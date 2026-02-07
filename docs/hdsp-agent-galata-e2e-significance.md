@@ -27,16 +27,14 @@ e2e/ui/
 
 ### 2.2 3계층 분리 패턴
 
-```
-┌──────────────────────────┐
-│   Test Specs (*.spec.ts)  │  ← 비즈니스 시나리오 기술
-├──────────────────────────┤
-│   Helpers (helpers.ts)    │  ← UI 조작 추상화 (셀렉터 + 함수)
-├──────────────────────────┤
-│   Fixtures (fixtures.ts)  │  ← Galata 확장 + 네트워크 목킹
-├──────────────────────────┤
-│   @jupyterlab/galata      │  ← 프레임워크 기반
-└──────────────────────────┘
+```mermaid
+flowchart TD
+    spec["<b>Test Specs</b> *.spec.ts<br/><i>비즈니스 시나리오 기술</i>"]
+    helper["<b>Helpers</b> helpers.ts<br/><i>UI 조작 추상화 — 셀렉터 + 함수</i>"]
+    fixture["<b>Fixtures</b> fixtures.ts<br/><i>Galata 확장 + 네트워크 목킹</i>"]
+    galata["<b>@jupyterlab/galata</b><br/><i>프레임워크 기반</i>"]
+
+    spec --> helper --> fixture --> galata
 ```
 
 이 분리는 다음을 보장한다:
@@ -122,14 +120,13 @@ Galata를 사용함으로써 JupyterLab의 핵심 기능(노트북, 셀, 커널)
 
 AI 에이전트가 위험한 작업(파일 삭제, 시스템 명령 등)을 수행할 때 사용자 승인을 요구하는 HITL 패턴을 E2E 테스트로 검증한다.
 
-```
-에이전트 실행 → 위험 감지 → 인터럽트 다이얼로그 표시
-                                      │
-                              ┌───────┼───────┐
-                              │               │
-                          승인(Approve)   거부(Reject)
-                              │               │
-                          실행 재개       실행 중단
+```mermaid
+flowchart TD
+    A[에이전트 실행] --> B[위험 감지]
+    B --> C[인터럽트 다이얼로그 표시]
+    C --> D{사용자 선택}
+    D -->|승인 Approve| E[실행 재개]
+    D -->|거부 Reject| F[실행 중단]
 ```
 
 테스트 항목:
@@ -196,14 +193,19 @@ settingsSelect, settingsInput, autoApproveCheckbox, temperatureSlider
 
 ### 4.2 테스트 피라미드에서의 위치
 
-```
-          ╱ ╲
-         ╱ E2E╲          ← HDSP Agent Galata 테스트 (여기)
-        ╱───────╲
-       ╱Integration╲     ← Python pytest (tests/)
-      ╱─────────────╲
-     ╱   Unit Tests   ╲  ← Python pytest + mock-data.spec.ts
-    ╱───────────────────╲
+```mermaid
+graph TD
+    subgraph pyramid["테스트 피라미드"]
+        E2E["E2E\nHDSP Agent Galata 테스트 ← 여기"]
+        INT["Integration\nPython pytest - tests/"]
+        UNIT["Unit Tests\nPython pytest + mock-data.spec.ts"]
+    end
+
+    E2E --- INT --- UNIT
+
+    style E2E fill:#ff6b6b,color:#fff
+    style INT fill:#ffd93d,color:#333
+    style UNIT fill:#6bcb77,color:#fff
 ```
 
 E2E 테스트가 커버하는 고유 영역:
@@ -310,10 +312,23 @@ await typeInCell(page, 'import pandas', 0);
 
 AI 애플리케이션의 근본적 테스트 난제는 응답의 비결정성이다. HDSP Agent의 접근:
 
-```
-문제: LLM 응답은 매번 다르다 → 테스트 결과를 예측할 수 없다
-해결: 네트워크 레벨 목킹으로 결정론적 응답 보장
-보존: UI 렌더링, 이벤트 처리, 상태 관리 등 프론트엔드 로직은 실제 코드 실행
+```mermaid
+flowchart LR
+    subgraph problem["문제"]
+        P1["LLM 응답은 매번 다르다"] --> P2["테스트 결과를 예측할 수 없다"]
+    end
+    subgraph solution["해결"]
+        S1["네트워크 레벨 목킹"] --> S2["결정론적 응답 보장"]
+    end
+    subgraph preserve["보존"]
+        V1["UI 렌더링, 이벤트 처리,\n상태 관리 등\n프론트엔드 로직은 실제 코드 실행"]
+    end
+
+    problem --> solution --> preserve
+
+    style problem fill:#ffcccc,color:#333
+    style solution fill:#ccffcc,color:#333
+    style preserve fill:#cce5ff,color:#333
 ```
 
 이 방식은 "AI 백엔드는 신뢰하되, 프론트엔드 통합은 검증한다"는 실용적 전략이다.

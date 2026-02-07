@@ -19,23 +19,15 @@ Galata는 JupyterLab 전용 E2E/UI 테스트 프레임워크로, Playwright 기�
 
 ### 2.1 레이어 구조
 
-```
-┌─────────────────────────────────────────┐
-│         Test Code (Jest + Galata API)    │  ← 사용자 테스트 코드
-├─────────────────────────────────────────┤
-│         Galata Public API               │  ← galata.ts (~2200 lines)
-│   namespace: notebook, menu, sidebar,   │
-│   activity, contents, capture, theme... │
-├─────────────────────────────────────────┤
-│         In-Page Bridge                  │  ← inpage/index.ts
-│   window.galataip (GalataInpage)        │
-│   JupyterLab 내부 객체 직접 접근        │
-├─────────────────────────────────────────┤
-│         Playwright                      │  ← 브라우저 자동화
-│   Page, Browser, ElementHandle          │
-├─────────────────────────────────────────┤
-│         JupyterLab (Chromium)           │  ← 실제 애플리케이션
-└─────────────────────────────────────────┘
+```mermaid
+flowchart TD
+    test["<b>Test Code</b><br/>Jest + Galata API<br/><i>사용자 테스트 코드</i>"]
+    api["<b>Galata Public API</b><br/>galata.ts ~2200 lines<br/><i>namespace: notebook, menu, sidebar,<br/>activity, contents, capture, theme...</i>"]
+    bridge["<b>In-Page Bridge</b><br/>inpage/index.ts<br/><i>window.galataip — JupyterLab 내부 객체 직접 접근</i>"]
+    pw["<b>Playwright</b><br/>Page, Browser, ElementHandle<br/><i>브라우저 자동화</i>"]
+    jlab["<b>JupyterLab</b><br/>Chromium<br/><i>실제 애플리케이션</i>"]
+
+    test --> api --> bridge --> pw --> jlab
 ```
 
 ### 2.2 핵심 설계 결정
@@ -194,20 +186,17 @@ Galata의 핵심 기술적 차별점은 **In-Page Injection** 패턴이다.
 
 ### 6.1 동작 원리
 
-```
-[Node.js 프로세스]                    [Chromium 브라우저]
- galata.ts                             JupyterLab
-    │                                      │
-    │  page.evaluate(...)                  │
-    ├─────────────────────────────────────→│
-    │                                      │
-    │                              window.galataip
-    │                              (GalataInpage)
-    │                                      │
-    │                              window.jupyterlab
-    │                              (JupyterFrontEnd)
-    │                                      │
-    │  ← result ──────────────────────────┤
+```mermaid
+sequenceDiagram
+    participant Node as Node.js 프로세스<br/>galata.ts
+    participant Browser as Chromium 브라우저<br/>JupyterLab
+
+    Node->>Browser: page.evaluate(...)
+    activate Browser
+    Note right of Browser: window.galataip<br/>(GalataInpage)
+    Note right of Browser: window.jupyterlab<br/>(JupyterFrontEnd)
+    Browser-->>Node: result
+    deactivate Browser
 ```
 
 ### 6.2 GalataInpage 클래스
@@ -273,17 +262,14 @@ jest-teardown.js → 브라우저 종료, 로그 파일 저장
 
 ### 7.4 Visual Regression 파이프라인
 
-```
-테스트 실행 → 스크린샷 캡처 → pixelmatch로 레퍼런스와 비교
-                                    │
-                           ┌────────┼────────┐
-                           │        │        │
-                         same   different  missing
-                           │        │        │
-                         통과    diff 생성   경고
-                                    │
-                              test-output/{id}/
-                              └── diff/*.png
+```mermaid
+flowchart LR
+    A[테스트 실행] --> B[스크린샷 캡처]
+    B --> C{pixelmatch로<br/>레퍼런스와 비교}
+    C -->|same| D[통과]
+    C -->|different| E[diff 생성]
+    C -->|missing| F[경고]
+    E --> G["test-output/{id}/diff/*.png"]
 ```
 
 설정 가능한 매칭 임계값: `imageMatchThreshold` (기본 0.1)
@@ -321,11 +307,11 @@ galata --delete-references               # 레퍼런스 전체 삭제
 
 ### 9.1 빌드 파이프라인
 
-```
-1. clean (lib/, lib-inpage/ 삭제)
-2. save-jlab-version (bin/metadata.json에 JupyterLab 버전 기록)
-3. webpack (src/inpage/ → lib-inpage/inpage.js, 브라우저용 번들)
-4. tsc (src/ → lib/src/, Node.js용 컴파일)
+```mermaid
+flowchart LR
+    A["1. clean\nlib/, lib-inpage/ 삭제"] --> B["2. save-jlab-version\nbin/metadata.json에\nJupyterLab 버전 기록"]
+    B --> C["3. webpack\nsrc/inpage/ → lib-inpage/inpage.js\n브라우저용 번들"]
+    C --> D["4. tsc\nsrc/ → lib/src/\nNode.js용 컴파일"]
 ```
 
 ### 9.2 TypeScript 설정
